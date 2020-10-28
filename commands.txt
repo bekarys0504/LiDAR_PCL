@@ -1,0 +1,1 @@
+roslaunch openni2_launch openni2.launch #launch openni to get data from rgb-d camera
