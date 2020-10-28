@@ -10,6 +10,7 @@
 #include "pcl_ros/point_cloud.h"
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/keypoints/uniform_sampling.h>
 using namespace std;
 
 int main(int argc, char **argv)
@@ -32,14 +33,19 @@ int main(int argc, char **argv)
   // }
 
   // Filter object.
+  //pcl::UniformSampling<pcl::PointXYZRGB> filter;
   pcl::VoxelGrid<pcl::PointXYZRGB> filter;
 	filter.setInputCloud(cloud);	
   // We set the size of every voxel to be 1x1x1cm
 	// (only one point per every cubic centimeter will survive).
 	filter.setLeafSize(0.01f, 0.01f, 0.01f);
 
+  //filter.setRadiusSearch(0.01f);
 	filter.filter(*filteredCloud);
+  //pcl::PointCloud<int> keypointIndices;
 
+	//filter.compute(keypointIndices);
+	//pcl::copyPointCloud(*cloud, keypointIndices.points, *filteredCloud);
 
   ros::init(argc, argv, "talker");
   ros::NodeHandle n;
