@@ -15,6 +15,8 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+
 using namespace std;
 
 int main(int argc, char **argv)
@@ -22,6 +24,7 @@ int main(int argc, char **argv)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr filteredCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr inlierPoints(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr clusterCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
   
   if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./src/test_pcl/src/test_pcd.pcd", *cloud) == -1) //* load the file
   {
@@ -95,16 +98,63 @@ int main(int argc, char **argv)
 		pcl::copyPointCloud<pcl::PointXYZRGB>(*filteredCloud, inlierIndices, *inlierPoints);
 	}
 
+  // kd-tree object for searches.
+	pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+	kdtree->setInputCloud(filteredCloud);
+
+  // Euclidean clustering object.
+	pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> clustering;
+	// Set cluster tolerance to 2cm (small values may cause objects to be divided
+	// in several clusters, whereas big values may join objects in a same cluster).
+	clustering.setClusterTolerance(0.01);
+	// Set the minimum and maximum number of points that a cluster can have.
+	clustering.setMinClusterSize(100);
+	clustering.setMaxClusterSize(25000);
+	clustering.setSearchMethod(kdtree);
+	clustering.setInputCloud(filteredCloud);
+	std::vector<pcl::PointIndices> clusters;
+	clustering.extract(clusters);
+
+	// For every cluster...
+	int currentClusterNum = 1;
+	for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
+	{
+		// ...add all its points to a new cloud...
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
+		for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
+			cluster->points.push_back(filteredCloud->points[*point]);
+		cluster->width = cluster->points.size();
+		cluster->height = 1;
+		cluster->is_dense = true;
+
+		// ...and save it to disk.
+		if (cluster->points.size() <= 0)
+			break;
+		std::cout << "Cluster " << currentClusterNum << " has " << cluster->points.size() << " points." << std::endl;
+		std::string fileName = "cluster" + boost::to_string(currentClusterNum) + ".pcd";
+		pcl::io::savePCDFileASCII(fileName, *cluster);
+
+		currentClusterNum++;
+	}
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster5.pcd", *clusterCloud) == -1) //* load the file
+  {
+    PCL_ERROR ("Couldn't read file Clusters.pcd \n");
+    return (-1);
+  }
+
   ros::init(argc, argv, "talker");
   ros::NodeHandle n;
   sensor_msgs::PointCloud2 cloud_msg;
   sensor_msgs::PointCloud2 full_input_msg;
   sensor_msgs::PointCloud2 ransac_plane_msg;
+  sensor_msgs::PointCloud2 cluster_msg;
   
   // advertise
   ros::Publisher pub_full_input = n.advertise<sensor_msgs::PointCloud2>("full_input", 10);
   ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2>("test_pcl", 10);
   ros::Publisher pub_ransac = n.advertise<sensor_msgs::PointCloud2>("ransac_plane", 10);
+  ros::Publisher pub_cluster = n.advertise<sensor_msgs::PointCloud2>("cluster", 10);
   // ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
   ros::Rate loop_rate(60);
   
@@ -128,9 +178,14 @@ int main(int argc, char **argv)
     ransac_plane_msg.header.frame_id = "camera";
     ransac_plane_msg.header.stamp = ros::Time::now();
 
+    pcl::toROSMsg (*clusterCloud, cluster_msg);
+    cluster_msg.header.frame_id = "camera";
+    cluster_msg.header.stamp = ros::Time::now();
+
 	  pub.publish(cloud_msg);
     pub_full_input.publish(full_input_msg);
     pub_ransac.publish(ransac_plane_msg);
+    pub_cluster.publish(cluster_msg);
     ros::spinOnce();
     loop_rate.sleep();
   
