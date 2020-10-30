@@ -25,6 +25,8 @@ int main(int argc, char **argv)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr filteredCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr inlierPoints(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr clusterCloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr clusterCloud1(new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr clusterCloud2(new pcl::PointCloud<pcl::PointXYZRGB>);
   
   if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./src/test_pcl/src/test_pcd.pcd", *cloud) == -1) //* load the file
   {
@@ -106,7 +108,7 @@ int main(int argc, char **argv)
 	pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> clustering;
 	// Set cluster tolerance to 2cm (small values may cause objects to be divided
 	// in several clusters, whereas big values may join objects in a same cluster).
-	clustering.setClusterTolerance(0.01);
+	clustering.setClusterTolerance(0.0095);
 	// Set the minimum and maximum number of points that a cluster can have.
 	clustering.setMinClusterSize(100);
 	clustering.setMaxClusterSize(25000);
@@ -127,6 +129,27 @@ int main(int argc, char **argv)
 		cluster->height = 1;
 		cluster->is_dense = true;
 
+    //Change color of cluster 1
+    if (currentClusterNum == 2)
+    {
+      for(int nIndex = 0; nIndex < cluster->points.size(); nIndex++)
+      {
+        cluster->points[nIndex].r = 0;
+        cluster->points[nIndex].b = 255;
+        cluster->points[nIndex].g = 0;
+      }
+    }
+
+    //Change color of cluster 2
+    if (currentClusterNum == 6)
+    {
+      for(int nIndex = 0; nIndex < cluster->points.size(); nIndex++)
+      {
+        cluster->points[nIndex].r = 0;
+        cluster->points[nIndex].b = 0;
+        cluster->points[nIndex].g = 255;
+      }
+    }
 		// ...and save it to disk.
 		if (cluster->points.size() <= 0)
 			break;
@@ -137,11 +160,70 @@ int main(int argc, char **argv)
 		currentClusterNum++;
 	}
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster5.pcd", *clusterCloud) == -1) //* load the file
+  // // kd-tree object for searches.
+	// pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+	// kdtree->setInputCloud(filteredCloud);
+
+	// // Estimate the normals.
+	// pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
+	// normalEstimation.setInputCloud(filteredCloud);
+	// normalEstimation.setRadiusSearch(1.0);
+	// normalEstimation.setSearchMethod(kdtree);
+	// normalEstimation.compute(*normals);
+
+	// // Region growing clustering object.
+	// pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> clustering;
+	// clustering.setMinClusterSize(100);
+	// clustering.setMaxClusterSize(10000);
+	// clustering.setSearchMethod(kdtree);
+	// clustering.setNumberOfNeighbours(30);
+	// clustering.setInputCloud(cloud);
+	// clustering.setInputNormals(normals);
+	// // Set the angle in radians that will be the smoothness threshold
+	// // (the maximum allowable deviation of the normals).
+	// clustering.setSmoothnessThreshold(7.0 / 180.0 * M_PI); // 7 degrees.
+	// // Set the curvature threshold. The disparity between curvatures will be
+	// // tested after the normal deviation check has passed.
+	// clustering.setCurvatureThreshold(1.0);
+
+	// std::vector <pcl::PointIndices> clusters;
+	// clustering.extract(clusters);
+
+	// // For every cluster...
+	// int currentClusterNum = 1;
+	// for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
+	// {
+	// 	// ...add all its points to a new cloud...
+	// 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
+	// 	for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
+	// 		cluster->points.push_back(cloud->points[*point]);
+	// 	cluster->width = cluster->points.size();
+	// 	cluster->height = 1;
+	// 	cluster->is_dense = true;
+
+	// 	// ...and save it to disk.
+	// 	if (cluster->points.size() <= 0)
+	// 		break;
+	// 	std::cout << "Cluster " << currentClusterNum << " has " << cluster->points.size() << " points." << std::endl;
+	// 	std::string fileName = "cluster" + boost::to_string(currentClusterNum) + ".pcd";
+	// 	pcl::io::savePCDFileASCII(fileName, *cluster);
+
+	// 	currentClusterNum++;
+	// }
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster2.pcd", *clusterCloud1) == -1) //* load the file
   {
-    PCL_ERROR ("Couldn't read file Clusters.pcd \n");
+    PCL_ERROR ("Couldn't read file \n");
     return (-1);
   }
+
+      if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster6.pcd", *clusterCloud2) == -1) //* load the file
+  {
+    PCL_ERROR ("Couldn't read file \n");
+    return (-1);
+  }
+
+  *clusterCloud = (*clusterCloud1) + (*clusterCloud2);
 
   ros::init(argc, argv, "talker");
   ros::NodeHandle n;
@@ -155,7 +237,6 @@ int main(int argc, char **argv)
   ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2>("test_pcl", 10);
   ros::Publisher pub_ransac = n.advertise<sensor_msgs::PointCloud2>("ransac_plane", 10);
   ros::Publisher pub_cluster = n.advertise<sensor_msgs::PointCloud2>("cluster", 10);
-  // ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
   ros::Rate loop_rate(60);
   
   int count = 0;
