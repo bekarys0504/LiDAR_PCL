@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	PTfilter.setInputCloud(filteredCloud);
 	// Filter out all points with Z values not in the [0-2] range.
   PTfilter.setFilterFieldName("z");
-	PTfilter.setFilterLimits(0.7, 1.2); //sidushka stula
+	PTfilter.setFilterLimits(0.7, 1.1); //sidushka stula
 
 	PTfilter.filter(*filteredCloud);
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 		cluster->is_dense = true;
 
     //Change color of cluster 1
-    if (currentClusterNum == 2)
+    if (currentClusterNum == 1)
     {
       for(int nIndex = 0; nIndex < cluster->points.size(); nIndex++)
       {
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     }
 
     //Change color of cluster 2
-    if (currentClusterNum == 6)
+    if (currentClusterNum == 4)
     {
       for(int nIndex = 0; nIndex < cluster->points.size(); nIndex++)
       {
@@ -211,13 +211,13 @@ int main(int argc, char **argv)
 	// 	currentClusterNum++;
 	// }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster2.pcd", *clusterCloud1) == -1) //* load the file
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster1.pcd", *clusterCloud1) == -1) //* load the file
   {
     PCL_ERROR ("Couldn't read file \n");
     return (-1);
   }
 
-      if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster6.pcd", *clusterCloud2) == -1) //* load the file
+      if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("./cluster4.pcd", *clusterCloud2) == -1) //* load the file
   {
     PCL_ERROR ("Couldn't read file \n");
     return (-1);
